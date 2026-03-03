@@ -22,7 +22,7 @@ impl Parser {
         if self.current < self.tokens.len() {
             Ok(&self.tokens[self.current])
         } else {
-            Err(ParserError::Err("a".to_string()))
+            Err(ParserError::Err("EOF".to_string()))
         }
     }
 
@@ -31,7 +31,7 @@ impl Parser {
             self.current += 1;
             Ok(&self.tokens[self.current - 1])
         } else {
-            Err(ParserError::Err("a".to_string()))
+            Err(ParserError::Err("EOF".to_string()))
         }
     }
 

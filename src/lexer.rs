@@ -68,8 +68,8 @@ impl<'a> Lexer<'a> {
                 self.src.next();
                 Some(Token { token_type: TokenType::RBrace, value: "}".to_string() })
             }
-            '\'' => {
-                Some(self.collect_quoted_name())
+            '\'' | '\"' => {
+                Some(self.collect_quoted_name(c))
             }
             _ => {
                 Some(self.collect_plain_name())
@@ -87,12 +87,12 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn collect_quoted_name(&mut self) -> Token {
+    fn collect_quoted_name(&mut self, quote: char) -> Token {
         self.src.next(); 
         let mut value = String::new();
         
         while let Some(&c) = self.src.peek() {
-            if c == '\'' {
+            if c == quote {
                 self.src.next(); 
                 break;
             }
