@@ -1,5 +1,5 @@
-:| Esc [$4] | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0 | '-' | '=' | Back [$8] |-
-:| Tab [$6] | Q | W | E | R | T | Y | U | I | O | P | '[' | ']' | '\' [$6] |-
-:| Caps [$7] | A | S | D | F | G | H | J | K | L | ';' | "'" | Enter [$9] |-
-:| LShift [$9] | Z | X | C | V | B | N | M | ',' | '.' | '/' | RShift [$11] |-
-:| LCtrl [$5] | Win [$5] | LAlt [$5] | Space [$25] | RAlt [$5] | Win [$5] | App [$5] | RCtrl [$5] |-
+:| Esc [$5] | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0 | '-' | '=' | Back [$8] |-
+:| Tab [$7] | Q | W | E | R | T | Y | U | I | O | P | '[' | ']' | '\' [$6] |-
+:| Caps [$8] | A | S | D | F | G | H | J | K | L | ';' | "'" | Enter [$9] |-
+:| LShift [$10] | Z | X | C | V | B | N | M | ',' | '.' | '/' | RShift [$11] |-
+:| LCtrl [$7] | Win [$5] | LAlt [$6] | Space [$20] | RAlt [$6] | Win [$5] | App [$5] | RCtrl [$7] |-
