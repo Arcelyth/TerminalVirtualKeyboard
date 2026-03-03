@@ -1,6 +1,29 @@
-line        := ":" "|" ( ( "'" name "'" | name ) attrDecl? "|")* "-"
-attrDecl    := "[" attr+ "]"
-attr        := length
-length      := number
-number      := "$" NUMBER
-name        := *
+# =============================================================================
+# TVKL GRAMMAR SPECIFICATION
+# 
+# This document defines the formal EBNF for the Terminal Virtual Keyboard Layout.
+# 
+# SYMBOLS:
+#   ::=   Production
+#   |     Alternation (OR)
+#   []    Optional (0 or 1)
+#   {}*   Zero or more repetitions
+#   {}+   One or more repetitions
+#   ""    Literal string
+# =============================================================================
+
+line        ::= ":" "|" { item "|" }* "-"
+
+item        ::= ( quoted_name | name ) [ attr_decl ]
+
+quoted_name ::= ( "'" name "'" ) | ( '"' name '"' )
+
+attr_decl   ::= "[" { attr }+ "]"
+
+attr        ::= length
+
+length      ::= "$" number
+
+name        ::= { ? any character ? }+ ;
+
+number      ::= [0-9]+ [ "." [0-9]+ ]
