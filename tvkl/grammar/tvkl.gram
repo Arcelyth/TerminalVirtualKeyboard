@@ -1,2 +1,6 @@
-line    := ":" "|" ( ( "'" name "'" | name ) "|")* "-"
-name    := *
+line        := ":" "|" ( ( "'" name "'" | name ) attrDecl? "|")* "-"
+attrDecl    := "[" attr+ "]"
+attr        := length
+length      := number
+number      := "$" NUMBER
+name        := *

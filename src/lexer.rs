@@ -4,11 +4,18 @@ use std::str::Chars;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenType {
-    LineHead, // ":"
-    LineTail, // "-"
-    Split,    // "|"
+    LineHead,   // ":"
+    LineTail,   // "-"
+    Split,      // "|"
     Name,     
+    Number,     // "$12"
+    LBracket,   // "["
+    RBracket,   // "]"
+    LBrace,     // "{"
+    RBrace,     // "}"
 }
+
+const RESERVE_SYMBOL: [char; 9] = [':', '-', '|', '\'', '[', ']', '{', '}', '$'];
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Token {
@@ -40,6 +47,26 @@ impl<'a> Lexer<'a> {
             '|' => {
                 self.src.next();
                 Some(Token { token_type: TokenType::Split, value: "|".to_string() })
+            }
+            '$' => {
+                self.src.next();
+                Some(self.collect_number())
+            }
+            '[' => {
+                self.src.next();
+                Some(Token { token_type: TokenType::LBracket, value: "[".to_string() })
+            }
+            ']' => {
+                self.src.next();
+                Some(Token { token_type: TokenType::RBracket, value: "]".to_string() })
+            }
+            '{' => {
+                self.src.next();
+                Some(Token { token_type: TokenType::LBrace, value: "{".to_string() })
+            }
+            '}' => {
+                self.src.next();
+                Some(Token { token_type: TokenType::RBrace, value: "}".to_string() })
             }
             '\'' => {
                 Some(self.collect_quoted_name())
@@ -76,10 +103,23 @@ impl<'a> Lexer<'a> {
         Token { token_type: TokenType::Name, value }
     }
 
+    fn collect_number(&mut self) -> Token {
+        let mut value = String::new();
+        while let Some(&c) = self.src.peek() {
+            if c.is_numeric() && !RESERVE_SYMBOL.contains(&c) {
+                value.push(c);
+                self.src.next();
+            } else {
+                break;
+            }
+        }
+        Token { token_type: TokenType::Number, value }
+    }
+
     fn collect_plain_name(&mut self) -> Token {
         let mut value = String::new();
         while let Some(&c) = self.src.peek() {
-            if c.is_whitespace() || vec![':', '-', '|', '\''].contains(&c) {
+            if c.is_whitespace() || RESERVE_SYMBOL.contains(&c) {
                 break;
             }
             value.push(c);
@@ -102,7 +142,7 @@ mod tests{
     use super::*;
 
     #[test]
-    fn input_to_token(){
+    fn simple_input(){
         let input = ":| A | '|' | 'P' | Back |-";
     
         let mut lexer = Lexer::new(input);
@@ -124,7 +164,30 @@ mod tests{
         ];     
 
         assert_eq!(tokens, right_result);
-
     }
+
+    #[test]
+    fn specify_length(){
+        let input = ":| A | Back [$10] |-";
+    
+        let mut lexer = Lexer::new(input);
+        let tokens:Vec<Token> = lexer.tokenization();
+
+        let right_result = vec![
+            Token { token_type: TokenType::LineHead, value: String::from(":") },
+            Token { token_type: TokenType::Split, value: String::from("|") },
+            Token { token_type: TokenType::Name, value: String::from("A")},
+            Token { token_type: TokenType::Split, value: String::from("|") },
+            Token { token_type: TokenType::Name, value: String::from("Back") },
+            Token { token_type: TokenType::LBracket, value: String::from("[") },
+            Token { token_type: TokenType::Number, value: String::from("10") },
+            Token { token_type: TokenType::RBracket, value: String::from("]") },
+            Token { token_type: TokenType::Split, value: String::from("|") },
+            Token { token_type: TokenType::LineTail, value: String::from("-") },
+        ];     
+
+        assert_eq!(tokens, right_result);
+    }
+
    
 }

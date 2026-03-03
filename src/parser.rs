@@ -9,6 +9,10 @@ pub struct Parser {
     current: usize,
 }
 
+pub struct Attr {
+    width: u16,
+}
+
 impl Parser {
     pub fn new(tokens: Vec<Token>) -> Self {
         Self { tokens, current: 0 }
@@ -28,18 +32,6 @@ impl Parser {
             Ok(&self.tokens[self.current - 1])
         } else {
             Err(ParserError::Err("a".to_string()))
-        }
-    }
-
-    fn expect(&mut self, ty: TokenType, value: String) -> Result<(), ParserError> {
-        let c = self.advance().unwrap();
-        if c.token_type == ty && c.value == value {
-            Ok(())
-        } else {
-            Err(ParserError::Err(format!(
-                "Expected '{:?}' {:?}, found '{:?}' {:?}",
-                ty, value, c.token_type, c.value
-            )))
         }
     }
 
@@ -70,13 +62,19 @@ impl Parser {
         self.consume(TokenType::LineHead)?;
         self.consume(TokenType::Split)?;
 
-        while self.peek()?.token_type != TokenType::LineTail {
+        while self.current < self.tokens.len() && self.peek()?.token_type != TokenType::LineTail {
             let name_token = self.consume(TokenType::Name)?;
-            let name_str = &name_token.value;
+            let name_str = name_token.value.clone();
+
+            let mut attr = get_default_width(&name_str);
+
+            if self.peek()?.token_type == TokenType::LBracket {
+                self.parse_attr(&mut attr)?;
+            }
 
             row.push(Button {
-                rdev_key: get_rdev_key(name_str),
-                width: get_default_width(name_str),
+                rdev_key: get_rdev_key(&name_str),
+                width: attr.width,
                 name: Arc::from(name_str.as_str()),
             });
 
@@ -85,6 +83,29 @@ impl Parser {
 
         self.consume(TokenType::LineTail)?;
         Ok(row)
+    }
+
+    fn parse_attr(&mut self, attr: &mut Attr) -> Result<(), ParserError> {
+        self.consume(TokenType::LBracket)?;
+
+        while self.peek()?.token_type != TokenType::RBracket {
+            match self.peek()?.token_type {
+                TokenType::Number => self.parse_width(attr)?,
+                _ => return Err(ParserError::Err("Invalid attribute".to_string())),
+            }
+        }
+
+        self.consume(TokenType::RBracket)?;
+        Ok(())
+    }
+
+    fn parse_width(&mut self, attr: &mut Attr) -> Result<(), ParserError> {
+        let num_token = self.consume(TokenType::Number)?;
+        attr.width = num_token
+            .value
+            .parse::<u16>()
+            .map_err(|_| ParserError::Err("Invalid number format".to_string()))?;
+        Ok(())
     }
 }
 
@@ -142,12 +163,10 @@ fn get_rdev_key(name: &str) -> Option<Key> {
     }
 }
 
-fn get_default_width(name: &str) -> u16 {
+fn get_default_width(name: &str) -> Attr {
     match name.to_lowercase().as_str() {
-        "space" => 20,
-        "lshift" | "rshift" | "enter" => 8,
-        "tab" | "back" | "caps" | "ctrl" => 6,
-        _ => 4,
+        "space" => Attr { width: 20 },
+        _ => Attr { width: 4 },
     }
 }
 
@@ -158,20 +177,38 @@ mod tests {
 
     // Helper to create a Name token
     fn t_name(val: &str) -> Token {
-        Token { token_type: TokenType::Name, value: val.to_string() }
+        Token {
+            token_type: TokenType::Name,
+            value: val.to_string(),
+        }
     }
 
     #[test]
     fn test_parser_success() {
         // Input sequence for: :| Tab | 'P' | -
         let tokens = vec![
-            Token { token_type: TokenType::LineHead, value: ":".into() },
-            Token { token_type: TokenType::Split, value: "|".into() },
+            Token {
+                token_type: TokenType::LineHead,
+                value: ":".into(),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
             t_name("Tab"),
-            Token { token_type: TokenType::Split, value: "|".into() },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
             t_name("P"),
-            Token { token_type: TokenType::Split, value: "|".into() },
-            Token { token_type: TokenType::LineTail, value: "-".into() },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            Token {
+                token_type: TokenType::LineTail,
+                value: "-".into(),
+            },
         ];
 
         let mut parser = Parser::new(tokens);
@@ -188,15 +225,24 @@ mod tests {
     fn test_parser_invalid_sequence() {
         // Missing the leading ":" -> | Q | -
         let tokens = vec![
-            Token { token_type: TokenType::Split, value: "|".into() },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
             t_name("Q"),
-            Token { token_type: TokenType::Split, value: "|".into() },
-            Token { token_type: TokenType::LineTail, value: "-".into() },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            Token {
+                token_type: TokenType::LineTail,
+                value: "-".into(),
+            },
         ];
 
         let mut parser = Parser::new(tokens);
         let result = parser.parse();
-        
+
         assert!(result.is_err());
     }
 
@@ -204,17 +250,82 @@ mod tests {
     fn test_parser_missing_split() {
         // Missing the pipe between names: :| A B | -
         let tokens = vec![
-            Token { token_type: TokenType::LineHead, value: ":".into() },
-            Token { token_type: TokenType::Split, value: "|".into() },
+            Token {
+                token_type: TokenType::LineHead,
+                value: ":".into(),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
             t_name("A"),
             t_name("B"), // Error here: Parser expects Split (|) after Name
-            Token { token_type: TokenType::Split, value: "|".into() },
-            Token { token_type: TokenType::LineTail, value: "-".into() },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            Token {
+                token_type: TokenType::LineTail,
+                value: "-".into(),
+            },
         ];
 
         let mut parser = Parser::new(tokens);
         let result = parser.parse();
-        
+
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_parser_with_attr() {
+        // Input sequence for: :| Tab [$10] | 'P' | -
+        let tokens = vec![
+            Token {
+                token_type: TokenType::LineHead,
+                value: ":".into(),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            t_name("Tab"),
+            Token {
+                token_type: TokenType::LBracket,
+                value: "[".into(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "10".into(),
+            },
+            Token {
+                token_type: TokenType::RBracket,
+                value: "]".into(),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            t_name("P"),
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            Token {
+                token_type: TokenType::LineTail,
+                value: "-".into(),
+            },
+        ];
+
+        let mut parser = Parser::new(tokens);
+        let result = parser.parse().unwrap();
+
+        assert_eq!(result.layer.len(), 1);
+        assert_eq!(result.layer[0][0].name.as_ref(), "Tab");
+        assert_eq!(result.layer[0][0].rdev_key, Some(Key::Tab));
+        assert_eq!(result.layer[0][0].width, 10);
+        assert_eq!(result.layer[0][1].name.as_ref(), "P");
+        assert_eq!(result.layer[0][1].rdev_key, Some(Key::KeyP));
+        assert_eq!(result.layer[0][1].width, 4);
+    }
+
 }
