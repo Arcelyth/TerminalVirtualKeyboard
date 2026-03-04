@@ -65,17 +65,24 @@ impl Parser {
         while self.current < self.tokens.len() && self.peek()?.token_type != TokenType::LineTail {
             let name_token = self.consume(TokenType::Name)?;
             let name_str = name_token.value.clone();
-
+            let mut binds = vec![];
+            binds.push((Arc::from(name_str.as_str()), get_rdev_key(&name_str)));
             let mut attr = get_default_width(&name_str);
+
+            while self.peek()?.token_type == TokenType::Comma {
+                self.consume(TokenType::Comma)?;
+                let name_token = self.consume(TokenType::Name)?;
+                let name_str = name_token.value.clone();
+                binds.push((Arc::from(name_str.as_str()), get_rdev_key(&name_str)));
+            }
 
             if self.peek()?.token_type == TokenType::LBracket {
                 self.parse_attr(&mut attr)?;
             }
 
             row.push(Button {
-                rdev_key: get_rdev_key(&name_str),
                 width: attr.width,
-                name: Arc::from(name_str.as_str()),
+                binds,
             });
 
             self.consume(TokenType::Split)?;
@@ -151,7 +158,7 @@ fn get_rdev_key(name: &str) -> Option<Key> {
         "x" => Some(Key::KeyX),
         "c" => Some(Key::KeyC),
         "v" => Some(Key::KeyV),
-        "b" => Some(Key::KeyN),
+        "b" => Some(Key::KeyB),
         "n" => Some(Key::KeyN),
         "m" => Some(Key::KeyM),
         "ctrl" | "lctrl" => Some(Key::ControlLeft),
@@ -215,10 +222,10 @@ mod tests {
         let result = parser.parse().unwrap();
 
         assert_eq!(result.layer.len(), 1);
-        assert_eq!(result.layer[0][0].name.as_ref(), "Tab");
-        assert_eq!(result.layer[0][0].rdev_key, Some(Key::Tab));
-        assert_eq!(result.layer[0][1].name.as_ref(), "P");
-        assert_eq!(result.layer[0][1].rdev_key, Some(Key::KeyP));
+        assert_eq!(result.layer[0][0].binds[0].0.as_ref(), "Tab");
+        assert_eq!(result.layer[0][0].binds[0].1, Some(Key::Tab));
+        assert_eq!(result.layer[0][1].binds[0].0.as_ref(), "P");
+        assert_eq!(result.layer[0][1].binds[0].1, Some(Key::KeyP));
     }
 
     #[test]
@@ -320,12 +327,65 @@ mod tests {
         let result = parser.parse().unwrap();
 
         assert_eq!(result.layer.len(), 1);
-        assert_eq!(result.layer[0][0].name.as_ref(), "Tab");
-        assert_eq!(result.layer[0][0].rdev_key, Some(Key::Tab));
+        assert_eq!(result.layer[0][0].binds[0].0.as_ref(), "Tab");
+        assert_eq!(result.layer[0][0].binds[0].1, Some(Key::Tab));
         assert_eq!(result.layer[0][0].width, 10);
-        assert_eq!(result.layer[0][1].name.as_ref(), "P");
-        assert_eq!(result.layer[0][1].rdev_key, Some(Key::KeyP));
+        assert_eq!(result.layer[0][1].binds[0].0.as_ref(), "P");
+        assert_eq!(result.layer[0][1].binds[0].1, Some(Key::KeyP));
         assert_eq!(result.layer[0][1].width, 4);
     }
+
+    #[test]
+    fn test_multi_binds() {
+        // Input sequence for: :| A, C, D| B | -
+        let tokens = vec![
+            Token {
+                token_type: TokenType::LineHead,
+                value: ":".into(),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            t_name("A"),
+            Token {
+                token_type: TokenType::Comma,
+                value: ",".into(),
+            },
+            t_name("C"),
+            Token {
+                token_type: TokenType::Comma,
+                value: ",".into(),
+            },
+            t_name("D"),
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            t_name("B"),
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            Token {
+                token_type: TokenType::LineTail,
+                value: "-".into(),
+            },
+        ];
+
+        let mut parser = Parser::new(tokens);
+        let result = parser.parse().unwrap();
+
+        assert_eq!(result.layer.len(), 1);
+        assert_eq!(result.layer[0][0].binds, [
+            (Arc::from("A"), Some(Key::KeyA)),
+            (Arc::from("C"), Some(Key::KeyC)),
+            (Arc::from("D"), Some(Key::KeyD)),
+        ]);
+        assert_eq!(result.layer[0][1].binds[0].0.as_ref(), "B");
+        assert_eq!(result.layer[0][1].binds[0].1, Some(Key::KeyB));
+        assert_eq!(result.layer[0][1].width, 4);
+    }
+
 
 }

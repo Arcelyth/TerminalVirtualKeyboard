@@ -8,8 +8,7 @@ pub struct Layout {
 
 #[derive(Debug)]
 pub struct Button {
-    pub name: Arc<str>,
     pub width: u16,
-    pub rdev_key: Option<Key>,
+    pub binds: Vec<(Arc<str>, Option<Key>)>
 }
 

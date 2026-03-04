@@ -13,9 +13,10 @@ pub enum TokenType {
     RBracket,   // "]"
     LBrace,     // "{"
     RBrace,     // "}"
+    Comma,      // ","
 }
 
-const RESERVE_SYMBOL: [char; 9] = [':', '-', '|', '\'', '[', ']', '{', '}', '$'];
+const RESERVE_SYMBOL: [char; 10] = [':', '-', '|', '\'', '[', ']', '{', '}', '$', ','];
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Token {
@@ -67,6 +68,10 @@ impl<'a> Lexer<'a> {
             '}' => {
                 self.src.next();
                 Some(Token { token_type: TokenType::RBrace, value: "}".to_string() })
+            }
+            ',' => {
+                self.src.next();
+                Some(Token { token_type: TokenType::Comma, value: ",".to_string() })
             }
             '\'' | '\"' => {
                 Some(self.collect_quoted_name(c))
@@ -188,6 +193,31 @@ mod tests{
 
         assert_eq!(tokens, right_result);
     }
+
+    #[test]
+    fn multi_binds(){
+        let input = ":| A | B, C, D |-";
+    
+        let mut lexer = Lexer::new(input);
+        let tokens:Vec<Token> = lexer.tokenization();
+
+        let right_result = vec![
+            Token { token_type: TokenType::LineHead, value: String::from(":") },
+            Token { token_type: TokenType::Split, value: String::from("|") },
+            Token { token_type: TokenType::Name, value: String::from("A")},
+            Token { token_type: TokenType::Split, value: String::from("|") },
+            Token { token_type: TokenType::Name, value: String::from("B") },
+            Token { token_type: TokenType::Comma, value: String::from(",") },
+            Token { token_type: TokenType::Name, value: String::from("C") },
+            Token { token_type: TokenType::Comma, value: String::from(",") },
+            Token { token_type: TokenType::Name, value: String::from("D") },
+            Token { token_type: TokenType::Split, value: String::from("|") },
+            Token { token_type: TokenType::LineTail, value: String::from("-") },
+        ];     
+
+        assert_eq!(tokens, right_result);
+    }
+
 
    
 }
