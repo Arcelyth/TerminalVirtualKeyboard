@@ -2,16 +2,13 @@ use crate::env::*;
 use crate::error::*;
 use crate::layout::*;
 use crate::lexer::*;
-use rdev::{EventType, Key, listen};
+use ratatui::style::Color;
+use rdev::Key;
 use std::sync::Arc;
 #[derive(Debug)]
 pub struct Parser {
     tokens: Vec<Token>,
     current: usize,
-}
-
-pub struct Attr {
-    width: u16,
 }
 
 impl Parser {
@@ -55,7 +52,7 @@ impl Parser {
             match self.peek()?.token_type {
                 TokenType::Ident => self.parse_assign(env)?,
                 TokenType::LineHead => {
-                    let row = self.parse_line()?;
+                    let row = self.parse_line(env)?;
                     layer.push(row);
                 }
                 _ => break,
@@ -69,10 +66,16 @@ impl Parser {
         let ident = self.consume(TokenType::Ident)?;
         let name = ident.value.clone();
         self.consume(TokenType::Equal)?;
-        let v = match self.peek()?.token_type {
+        let v = self.parse_value(env)?;
+        env.insert(&name, v);
+        Ok(())
+    }
+
+    fn parse_value(&mut self, env: &Env) -> Result<Value, ParserError> {
+        match self.peek()?.token_type {
             TokenType::Number => {
                 let num = self.consume(TokenType::Number)?;
-                Value::Number(num.value.parse()?)
+                Ok(Value::Number(num.value.parse()?))
             }
             TokenType::At => {
                 self.consume(TokenType::At)?;
@@ -83,15 +86,27 @@ impl Parser {
                 self.consume(TokenType::Comma)?;
                 let b = self.consume(TokenType::Number)?.clone();
                 self.consume(TokenType::RParen)?;
-                Value::RGB(r.value.parse()?, g.value.parse()?, b.value.parse()?)
+                Ok(Value::RGB(
+                    r.value.parse()?,
+                    g.value.parse()?,
+                    b.value.parse()?,
+                ))
             }
-            _ => return Err(ParserError::Err("Expected Number or RGB.".to_string())),
-        };
-        env.insert(&name, v);
-        Ok(())
+            TokenType::Ident => {
+                let ident = self.consume(TokenType::Ident)?;
+                let name = ident.value.clone();
+                match env.get(name.as_str()) {
+                    Some(v) => Ok(*v),
+                    None => Err(ParserError::Err(format!("Unbounded Variable {:?}.", name))),
+                }
+            }
+            _ => Err(ParserError::Err(
+                "Expected Number, Identifier or RGB.".to_string(),
+            )),
+        }
     }
 
-    fn parse_line(&mut self) -> Result<Vec<Button>, ParserError> {
+    fn parse_line(&mut self, env: &Env) -> Result<Vec<Button>, ParserError> {
         let mut row = Vec::new();
         self.consume(TokenType::LineHead)?;
         self.consume(TokenType::Split)?;
@@ -101,7 +116,7 @@ impl Parser {
             let name_str = name_token.value.clone();
             let mut binds = vec![];
             binds.push((Arc::from(name_str.as_str()), get_rdev_key(&name_str)));
-            let mut attr = get_default_width(&name_str);
+            let mut attr = Attr::default(&name_str);
 
             while self.peek()?.token_type == TokenType::Comma {
                 self.consume(TokenType::Comma)?;
@@ -111,13 +126,10 @@ impl Parser {
             }
 
             if self.peek()?.token_type == TokenType::LBracket {
-                self.parse_attr(&mut attr)?;
+                self.parse_attr(&mut attr, env)?;
             }
 
-            row.push(Button {
-                width: attr.width,
-                binds,
-            });
+            row.push(Button { attr: attr, binds });
 
             self.consume(TokenType::Split)?;
         }
@@ -126,26 +138,65 @@ impl Parser {
         Ok(row)
     }
 
-    fn parse_attr(&mut self, attr: &mut Attr) -> Result<(), ParserError> {
-        self.consume(TokenType::LBracket)?;
+    fn parse_attr(&mut self, attr: &mut Attr, env: &Env) -> Result<(), ParserError> {
+        self.consume(TokenType::LBracket)?; // [
+
+        let mut pos = 0;
 
         while self.peek()?.token_type != TokenType::RBracket {
-            match self.peek()?.token_type {
-                TokenType::Number => self.parse_width(attr)?,
-                _ => return Err(ParserError::Err("Invalid attribute".to_string())),
+            let t_type = self.peek()?.token_type;
+
+            if t_type == TokenType::Comma {
+                self.consume(TokenType::Comma)?;
+                pos += 1;
+                continue;
+            }
+
+            match pos {
+                0 => {
+                    // width
+                    if let Value::Number(w) = self.parse_value(env)? {
+                        attr.width = w;
+                    } else {
+                        return Err(ParserError::Err("Width must be a number".into()));
+                    }
+                }
+                1 => {
+                    // height
+                    if let Value::Number(h) = self.parse_value(env)? {
+                        attr.height = h;
+                    } else {
+                        return Err(ParserError::Err("Height must be a number".into()));
+                    }
+                }
+                2 => {
+                    // border_color
+                    if let Value::RGB(r, g, b) = self.parse_value(env)? {
+                        attr.border_color = Some(Color::Rgb(r, g, b));
+                    } else {
+                        return Err(ParserError::Err("Border color must be RGB".into()));
+                    }
+                }
+                3 => {
+                    // highlight
+                    if let Value::RGB(r, g, b) = self.parse_value(env)? {
+                        attr.highlight = Some(Color::Rgb(r, g, b));
+                    } else {
+                        return Err(ParserError::Err("Highlight must be RGB".into()));
+                    }
+                }
+                _ => {
+                    self.advance()?;
+                }
+            }
+
+            if self.peek()?.token_type == TokenType::Comma {
+                self.consume(TokenType::Comma)?;
+                pos += 1;
             }
         }
 
         self.consume(TokenType::RBracket)?;
-        Ok(())
-    }
-
-    fn parse_width(&mut self, attr: &mut Attr) -> Result<(), ParserError> {
-        let num_token = self.consume(TokenType::Number)?;
-        attr.width = num_token
-            .value
-            .parse::<u16>()
-            .map_err(|_| ParserError::Err("Invalid number format".to_string()))?;
         Ok(())
     }
 }
@@ -201,13 +252,6 @@ fn get_rdev_key(name: &str) -> Option<Key> {
         "ralt" | "altgr" => Some(Key::AltGr),
         "space" => Some(Key::Space),
         _ => None,
-    }
-}
-
-fn get_default_width(name: &str) -> Attr {
-    match name.to_lowercase().as_str() {
-        "space" => Attr { width: 20 },
-        _ => Attr { width: 4 },
     }
 }
 
@@ -337,10 +381,95 @@ mod tests {
         assert_eq!(result.layer.len(), 1);
         assert_eq!(result.layer[0][0].binds[0].0.as_ref(), "Tab");
         assert_eq!(result.layer[0][0].binds[0].1, Some(Key::Tab));
-        assert_eq!(result.layer[0][0].width, 10);
+        assert_eq!(result.layer[0][0].attr.width, 10);
         assert_eq!(result.layer[0][1].binds[0].0.as_ref(), "P");
         assert_eq!(result.layer[0][1].binds[0].1, Some(Key::KeyP));
-        assert_eq!(result.layer[0][1].width, 4);
+        assert_eq!(result.layer[0][1].attr.width, 4);
+    }
+
+    #[test]
+    fn test_omit_attr() {
+        // Input sequence for: :| Tab [$10, , @($1, $1, $1)] | -
+        let tokens = vec![
+            Token {
+                token_type: TokenType::LineHead,
+                value: ":".into(),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            t_name("Tab"),
+            Token {
+                token_type: TokenType::LBracket,
+                value: "[".into(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "10".into(),
+            },
+            Token {
+                token_type: TokenType::Comma,
+                value: ",".into(),
+            },
+            Token {
+                token_type: TokenType::Comma,
+                value: ",".into(),
+            },
+            Token {
+                token_type: TokenType::At,
+                value: "@".into(),
+            },
+            Token {
+                token_type: TokenType::LParen,
+                value: "(".into(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "1".into(),
+            },
+            Token {
+                token_type: TokenType::Comma,
+                value: ",".into(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "1".into(),
+            },
+            Token {
+                token_type: TokenType::Comma,
+                value: ",".into(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "1".into(),
+            },
+            Token {
+                token_type: TokenType::RParen,
+                value: ")".into(),
+            },
+            Token {
+                token_type: TokenType::RBracket,
+                value: "]".into(),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            Token {
+                token_type: TokenType::LineTail,
+                value: "-".into(),
+            },
+        ];
+
+        let mut parser = Parser::new(tokens);
+
+        let result = parser.parse(&mut Env::new()).unwrap();
+        assert_eq!(result.layer.len(), 1);
+        assert_eq!(result.layer[0][0].binds[0].0.as_ref(), "Tab");
+        assert_eq!(result.layer[0][0].binds[0].1, Some(Key::Tab));
+        assert_eq!(result.layer[0][0].attr.width, 10);
+        assert_eq!(result.layer[0][0].attr.border_color, Some(Color::Rgb(1, 1, 1)));
     }
 
     #[test]
@@ -395,7 +524,7 @@ mod tests {
         );
         assert_eq!(result.layer[0][1].binds[0].0.as_ref(), "B");
         assert_eq!(result.layer[0][1].binds[0].1, Some(Key::KeyB));
-        assert_eq!(result.layer[0][1].width, 4);
+        assert_eq!(result.layer[0][1].attr.width, 4);
     }
 
     #[test]
@@ -509,7 +638,7 @@ mod tests {
             _ => panic!("Variable 'color' not found or wrong type"),
         }
 
-        assert_eq!(result.layer.len(), 1); 
+        assert_eq!(result.layer.len(), 1);
 
         let button_1 = &result.layer[0][0];
         assert_eq!(
@@ -524,6 +653,6 @@ mod tests {
         let button_2 = &result.layer[0][1];
         assert_eq!(button_2.binds[0].0.as_ref(), "B");
         assert_eq!(button_2.binds[0].1, Some(Key::KeyB));
-        assert_eq!(button_2.width, 4); 
+        assert_eq!(button_2.attr.width, 4);
     }
 }
