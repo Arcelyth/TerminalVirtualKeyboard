@@ -1,4 +1,5 @@
 use thiserror::Error;
+use std::num::ParseIntError;
 
 #[derive(Error, Debug)]
 pub enum ParserError{
@@ -6,6 +7,8 @@ pub enum ParserError{
     IOError(#[from] std::io::Error),
     #[error("{0}")]
     Err(String),
+    #[error("IO error: {0}")]
+    ParseIntError(#[from] ParseIntError),
 }
 
 #[derive(Error, Debug)]

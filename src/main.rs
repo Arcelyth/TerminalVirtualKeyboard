@@ -6,6 +6,8 @@ mod layout;
 mod render;
 mod error;
 use error::*;
+mod env;
+use env::*;
 
 use ratatui::crossterm::{
     event::{self, Event, KeyCode},
@@ -43,7 +45,8 @@ fn main() -> Result<(), AppError> {
         let mut lexer = Lexer::new(&content);
         let tokens = lexer.tokenization();
         let mut parser = Parser::new(tokens);
-        parser.parse()?
+        let mut env = Env::new();
+        parser.parse(&mut env)?
     } else {
         return Err(AppError::WrongUsage); 
     };

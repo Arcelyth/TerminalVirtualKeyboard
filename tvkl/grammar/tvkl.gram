@@ -12,18 +12,18 @@
 #   ""    Literal string
 # =============================================================================
 
+tvkl        ::= declaration* EOF
+declaration ::= assign | line*
+assign      ::= ident "=" value
+ident       ::= "#" name
+value       ::= number | rgb
+rgb         ::= "rgb(" num "," num "," num ")"
 line        ::= ":" "|" { item (, item)* "|" }* "-"
-
 item        ::= ( quoted_name | name ) [ attr_decl ]
-
 quoted_name ::= ( "'" name "'" ) | ( '"' name '"' )
-
 attr_decl   ::= "[" { attr }+ "]"
-
-attr        ::= length
-
-length      ::= "$" number
-
+attr        ::= number
 name        ::= { ? any character ? }+ ;
+number      ::= "$" num
+num         ::= [0-9]+
 
-number      ::= [0-9]+ [ "." [0-9]+ ]

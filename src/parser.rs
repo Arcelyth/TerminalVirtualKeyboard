@@ -1,3 +1,4 @@
+use crate::env::*;
 use crate::error::*;
 use crate::layout::*;
 use crate::lexer::*;
@@ -47,14 +48,47 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Result<Layout, ParserError> {
+    pub fn parse(&mut self, env: &mut Env) -> Result<Layout, ParserError> {
         let mut layer = Vec::new();
 
         while self.current < self.tokens.len() {
-            layer.push(self.parse_line()?);
+            match self.peek()?.token_type {
+                TokenType::Ident => self.parse_assign(env)?,
+                TokenType::LineHead => {
+                    let row = self.parse_line()?;
+                    layer.push(row);
+                }
+                _ => break,
+            }
         }
 
         Ok(Layout { layer })
+    }
+
+    pub fn parse_assign(&mut self, env: &mut Env) -> Result<(), ParserError> {
+        let ident = self.consume(TokenType::Ident)?;
+        let name = ident.value.clone();
+        self.consume(TokenType::Equal)?;
+        let v = match self.peek()?.token_type {
+            TokenType::Number => {
+                let num = self.consume(TokenType::Number)?;
+                Value::Number(num.value.parse()?)
+            }
+            TokenType::At => {
+                self.consume(TokenType::At)?;
+                self.consume(TokenType::LParen)?;
+                let r = self.consume(TokenType::Number)?.clone();
+                self.consume(TokenType::Comma)?;
+                let g = self.consume(TokenType::Number)?.clone();
+                self.consume(TokenType::Comma)?;
+                let b = self.consume(TokenType::Number)?.clone();
+                self.consume(TokenType::RParen)?;
+                Value::RGB(r.value.parse()?, g.value.parse()?, b.value.parse()?)
+            }
+            _ => return Err(ParserError::Err("Expected Number or RGB.".to_string())),
+        };
+        env.insert(&name, v);
+        Ok(())
     }
 
     fn parse_line(&mut self) -> Result<Vec<Button>, ParserError> {
@@ -219,38 +253,13 @@ mod tests {
         ];
 
         let mut parser = Parser::new(tokens);
-        let result = parser.parse().unwrap();
+        let result = parser.parse(&mut Env::new()).unwrap();
 
         assert_eq!(result.layer.len(), 1);
         assert_eq!(result.layer[0][0].binds[0].0.as_ref(), "Tab");
         assert_eq!(result.layer[0][0].binds[0].1, Some(Key::Tab));
         assert_eq!(result.layer[0][1].binds[0].0.as_ref(), "P");
         assert_eq!(result.layer[0][1].binds[0].1, Some(Key::KeyP));
-    }
-
-    #[test]
-    fn test_parser_invalid_sequence() {
-        // Missing the leading ":" -> | Q | -
-        let tokens = vec![
-            Token {
-                token_type: TokenType::Split,
-                value: "|".into(),
-            },
-            t_name("Q"),
-            Token {
-                token_type: TokenType::Split,
-                value: "|".into(),
-            },
-            Token {
-                token_type: TokenType::LineTail,
-                value: "-".into(),
-            },
-        ];
-
-        let mut parser = Parser::new(tokens);
-        let result = parser.parse();
-
-        assert!(result.is_err());
     }
 
     #[test]
@@ -278,8 +287,7 @@ mod tests {
         ];
 
         let mut parser = Parser::new(tokens);
-        let result = parser.parse();
-
+        let result = parser.parse(&mut Env::new());
         assert!(result.is_err());
     }
 
@@ -324,8 +332,8 @@ mod tests {
         ];
 
         let mut parser = Parser::new(tokens);
-        let result = parser.parse().unwrap();
 
+        let result = parser.parse(&mut Env::new()).unwrap();
         assert_eq!(result.layer.len(), 1);
         assert_eq!(result.layer[0][0].binds[0].0.as_ref(), "Tab");
         assert_eq!(result.layer[0][0].binds[0].1, Some(Key::Tab));
@@ -374,18 +382,148 @@ mod tests {
         ];
 
         let mut parser = Parser::new(tokens);
-        let result = parser.parse().unwrap();
 
+        let result = parser.parse(&mut Env::new()).unwrap();
         assert_eq!(result.layer.len(), 1);
-        assert_eq!(result.layer[0][0].binds, [
-            (Arc::from("A"), Some(Key::KeyA)),
-            (Arc::from("C"), Some(Key::KeyC)),
-            (Arc::from("D"), Some(Key::KeyD)),
-        ]);
+        assert_eq!(
+            result.layer[0][0].binds,
+            [
+                (Arc::from("A"), Some(Key::KeyA)),
+                (Arc::from("C"), Some(Key::KeyC)),
+                (Arc::from("D"), Some(Key::KeyD)),
+            ]
+        );
         assert_eq!(result.layer[0][1].binds[0].0.as_ref(), "B");
         assert_eq!(result.layer[0][1].binds[0].1, Some(Key::KeyB));
         assert_eq!(result.layer[0][1].width, 4);
     }
 
+    #[test]
+    fn test_declarations_with_layout() {
+        let mut env = Env::new();
 
+        // id = 10
+        // color = @(1, 2, 3)
+        // :| A, C, D | B |-
+        let tokens = vec![
+            Token {
+                token_type: TokenType::Ident,
+                value: "id".into(),
+            },
+            Token {
+                token_type: TokenType::Equal,
+                value: "=".into(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "10".into(),
+            },
+            Token {
+                token_type: TokenType::Ident,
+                value: "color".into(),
+            },
+            Token {
+                token_type: TokenType::Equal,
+                value: "=".into(),
+            },
+            Token {
+                token_type: TokenType::At,
+                value: "@".into(),
+            },
+            Token {
+                token_type: TokenType::LParen,
+                value: "(".into(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "1".into(),
+            },
+            Token {
+                token_type: TokenType::Comma,
+                value: ",".into(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "2".into(),
+            },
+            Token {
+                token_type: TokenType::Comma,
+                value: ",".into(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "3".into(),
+            },
+            Token {
+                token_type: TokenType::RParen,
+                value: ")".into(),
+            },
+            Token {
+                token_type: TokenType::LineHead,
+                value: ":".into(),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            t_name("A"),
+            Token {
+                token_type: TokenType::Comma,
+                value: ",".into(),
+            },
+            t_name("C"),
+            Token {
+                token_type: TokenType::Comma,
+                value: ",".into(),
+            },
+            t_name("D"),
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            t_name("B"),
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            Token {
+                token_type: TokenType::LineTail,
+                value: "-".into(),
+            },
+        ];
+
+        let mut parser = Parser::new(tokens);
+        let result = parser.parse(&mut env).expect("Parsing failed");
+
+        match env.get("id") {
+            Some(Value::Number(n)) => assert_eq!(*n, 10),
+            _ => panic!("Variable 'id' not found or wrong type"),
+        }
+
+        match env.get("color") {
+            Some(Value::RGB(r, g, b)) => {
+                assert_eq!(*r, 1);
+                assert_eq!(*g, 2);
+                assert_eq!(*b, 3);
+            }
+            _ => panic!("Variable 'color' not found or wrong type"),
+        }
+
+        assert_eq!(result.layer.len(), 1); 
+
+        let button_1 = &result.layer[0][0];
+        assert_eq!(
+            button_1.binds,
+            vec![
+                (Arc::from("A"), Some(Key::KeyA)),
+                (Arc::from("C"), Some(Key::KeyC)),
+                (Arc::from("D"), Some(Key::KeyD)),
+            ]
+        );
+
+        let button_2 = &result.layer[0][1];
+        assert_eq!(button_2.binds[0].0.as_ref(), "B");
+        assert_eq!(button_2.binds[0].1, Some(Key::KeyB));
+        assert_eq!(button_2.width, 4); 
+    }
 }

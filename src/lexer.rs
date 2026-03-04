@@ -1,22 +1,28 @@
 use std::iter::Peekable;
 use std::str::Chars;
 
-
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TokenType {
-    LineHead,   // ":"
-    LineTail,   // "-"
-    Split,      // "|"
-    Name,     
-    Number,     // "$12"
-    LBracket,   // "["
-    RBracket,   // "]"
-    LBrace,     // "{"
-    RBrace,     // "}"
-    Comma,      // ","
+    LineHead, // ":"
+    LineTail, // "-"
+    Split,    // "|"
+    Name,
+    Number,   // "$12"
+    LBracket, // "["
+    RBracket, // "]"
+    LBrace,   // "{"
+    RBrace,   // "}"
+    LParen,   // "("
+    RParen,   // ")"
+    Comma,    // ","
+    Equal,    // "="
+    Ident,    // "#a"
+    At,       // "@"
 }
 
-const RESERVE_SYMBOL: [char; 10] = [':', '-', '|', '\'', '[', ']', '{', '}', '$', ','];
+const RESERVE_SYMBOL: [char; 15] = [
+    ':', '-', '|', '\'', '[', ']', '{', '}', '(', ')', '$', ',', '=', '#', '@',
+];
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Token {
@@ -30,7 +36,9 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     pub fn new(src: &'a str) -> Self {
-        Self { src: src.chars().peekable() }
+        Self {
+            src: src.chars().peekable(),
+        }
     }
 
     pub fn next_token(&mut self) -> Option<Token> {
@@ -39,15 +47,24 @@ impl<'a> Lexer<'a> {
         match c {
             ':' => {
                 self.src.next();
-                Some(Token { token_type: TokenType::LineHead, value: ":".to_string() })
+                Some(Token {
+                    token_type: TokenType::LineHead,
+                    value: ":".to_string(),
+                })
             }
             '-' => {
                 self.src.next();
-                Some(Token { token_type: TokenType::LineTail, value: "-".to_string() })
+                Some(Token {
+                    token_type: TokenType::LineTail,
+                    value: "-".to_string(),
+                })
             }
             '|' => {
                 self.src.next();
-                Some(Token { token_type: TokenType::Split, value: "|".to_string() })
+                Some(Token {
+                    token_type: TokenType::Split,
+                    value: "|".to_string(),
+                })
             }
             '$' => {
                 self.src.next();
@@ -55,30 +72,73 @@ impl<'a> Lexer<'a> {
             }
             '[' => {
                 self.src.next();
-                Some(Token { token_type: TokenType::LBracket, value: "[".to_string() })
+                Some(Token {
+                    token_type: TokenType::LBracket,
+                    value: "[".to_string(),
+                })
             }
             ']' => {
                 self.src.next();
-                Some(Token { token_type: TokenType::RBracket, value: "]".to_string() })
+                Some(Token {
+                    token_type: TokenType::RBracket,
+                    value: "]".to_string(),
+                })
             }
             '{' => {
                 self.src.next();
-                Some(Token { token_type: TokenType::LBrace, value: "{".to_string() })
+                Some(Token {
+                    token_type: TokenType::LBrace,
+                    value: "{".to_string(),
+                })
             }
             '}' => {
                 self.src.next();
-                Some(Token { token_type: TokenType::RBrace, value: "}".to_string() })
+                Some(Token {
+                    token_type: TokenType::RBrace,
+                    value: "}".to_string(),
+                })
+            }
+            '(' => {
+                self.src.next();
+                Some(Token {
+                    token_type: TokenType::LParen,
+                    value: "(".to_string(),
+                })
+            }
+            ')' => {
+                self.src.next();
+                Some(Token {
+                    token_type: TokenType::RParen,
+                    value: ")".to_string(),
+                })
+            }
+            '=' => {
+                self.src.next();
+                Some(Token {
+                    token_type: TokenType::Equal,
+                    value: "=".to_string(),
+                })
             }
             ',' => {
                 self.src.next();
-                Some(Token { token_type: TokenType::Comma, value: ",".to_string() })
+                Some(Token {
+                    token_type: TokenType::Comma,
+                    value: ",".to_string(),
+                })
             }
-            '\'' | '\"' => {
-                Some(self.collect_quoted_name(c))
+            '#' => {
+                self.src.next();
+                Some(self.collect_ident())
             }
-            _ => {
-                Some(self.collect_plain_name())
+            '@' => {
+                self.src.next();
+                Some(Token {
+                    token_type: TokenType::At,
+                    value: "@".to_string(),
+                })
             }
+            '\'' | '\"' => Some(self.collect_quoted_name(c)),
+            _ => Some(self.collect_plain_name()),
         }
     }
 
@@ -93,19 +153,22 @@ impl<'a> Lexer<'a> {
     }
 
     fn collect_quoted_name(&mut self, quote: char) -> Token {
-        self.src.next(); 
+        self.src.next();
         let mut value = String::new();
-        
+
         while let Some(&c) = self.src.peek() {
             if c == quote {
-                self.src.next(); 
+                self.src.next();
                 break;
             }
             value.push(c);
             self.src.next();
         }
-        
-        Token { token_type: TokenType::Name, value }
+
+        Token {
+            token_type: TokenType::Name,
+            value,
+        }
     }
 
     fn collect_number(&mut self) -> Token {
@@ -118,7 +181,10 @@ impl<'a> Lexer<'a> {
                 break;
             }
         }
-        Token { token_type: TokenType::Number, value }
+        Token {
+            token_type: TokenType::Number,
+            value,
+        }
     }
 
     fn collect_plain_name(&mut self) -> Token {
@@ -130,7 +196,26 @@ impl<'a> Lexer<'a> {
             value.push(c);
             self.src.next();
         }
-        Token { token_type: TokenType::Name, value }
+        Token {
+            token_type: TokenType::Name,
+            value,
+        }
+    }
+
+    fn collect_ident(&mut self) -> Token {
+        let mut value = String::new();
+        while let Some(&c) = self.src.peek() {
+            if c.is_alphanumeric() {
+                value.push(c);
+                self.src.next();
+            } else {
+                break;
+            }
+        }
+        Token {
+            token_type: TokenType::Ident,
+            value,
+        }
     }
 
     pub fn tokenization(&mut self) -> Vec<Token> {
@@ -143,81 +228,238 @@ impl<'a> Lexer<'a> {
 }
 
 #[cfg(test)]
-mod tests{
+mod tests {
     use super::*;
 
     #[test]
-    fn simple_input(){
+    fn simple_input() {
         let input = ":| A | '|' | 'P' | Back |-";
-    
+
         let mut lexer = Lexer::new(input);
-        let tokens:Vec<Token> = lexer.tokenization();
+        let tokens: Vec<Token> = lexer.tokenization();
 
         let right_result = vec![
-            Token { token_type: TokenType::LineHead, value: String::from(":") },
-            Token { token_type: TokenType::Split, value: String::from("|") },
-            Token { token_type: TokenType::Name, value: String::from("A")},
-            Token { token_type: TokenType::Split, value: String::from("|") },
-            Token { token_type: TokenType::Name, value: String::from("|") },
-            Token { token_type: TokenType::Split, value: String::from("|")},
-            Token { token_type: TokenType::Name, value: String::from("P") },
-            Token { token_type: TokenType::Split, value: String::from("|") },
-            Token { token_type: TokenType::Name, value: String::from("Back") },
-            Token { token_type: TokenType::Split, value: String::from("|") },
-            Token { token_type: TokenType::LineTail, value: String::from("-") },
-
-        ];     
+            Token {
+                token_type: TokenType::LineHead,
+                value: String::from(":"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: String::from("A"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: String::from("P"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: String::from("Back"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::LineTail,
+                value: String::from("-"),
+            },
+        ];
 
         assert_eq!(tokens, right_result);
     }
 
     #[test]
-    fn specify_length(){
+    fn specify_length() {
         let input = ":| A | Back [$10] |-";
-    
+
         let mut lexer = Lexer::new(input);
-        let tokens:Vec<Token> = lexer.tokenization();
+        let tokens: Vec<Token> = lexer.tokenization();
 
         let right_result = vec![
-            Token { token_type: TokenType::LineHead, value: String::from(":") },
-            Token { token_type: TokenType::Split, value: String::from("|") },
-            Token { token_type: TokenType::Name, value: String::from("A")},
-            Token { token_type: TokenType::Split, value: String::from("|") },
-            Token { token_type: TokenType::Name, value: String::from("Back") },
-            Token { token_type: TokenType::LBracket, value: String::from("[") },
-            Token { token_type: TokenType::Number, value: String::from("10") },
-            Token { token_type: TokenType::RBracket, value: String::from("]") },
-            Token { token_type: TokenType::Split, value: String::from("|") },
-            Token { token_type: TokenType::LineTail, value: String::from("-") },
-        ];     
+            Token {
+                token_type: TokenType::LineHead,
+                value: String::from(":"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: String::from("A"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: String::from("Back"),
+            },
+            Token {
+                token_type: TokenType::LBracket,
+                value: String::from("["),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: String::from("10"),
+            },
+            Token {
+                token_type: TokenType::RBracket,
+                value: String::from("]"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::LineTail,
+                value: String::from("-"),
+            },
+        ];
 
         assert_eq!(tokens, right_result);
     }
 
     #[test]
-    fn multi_binds(){
+    fn multi_binds() {
         let input = ":| A | B, C, D |-";
-    
+
         let mut lexer = Lexer::new(input);
-        let tokens:Vec<Token> = lexer.tokenization();
+        let tokens: Vec<Token> = lexer.tokenization();
 
         let right_result = vec![
-            Token { token_type: TokenType::LineHead, value: String::from(":") },
-            Token { token_type: TokenType::Split, value: String::from("|") },
-            Token { token_type: TokenType::Name, value: String::from("A")},
-            Token { token_type: TokenType::Split, value: String::from("|") },
-            Token { token_type: TokenType::Name, value: String::from("B") },
-            Token { token_type: TokenType::Comma, value: String::from(",") },
-            Token { token_type: TokenType::Name, value: String::from("C") },
-            Token { token_type: TokenType::Comma, value: String::from(",") },
-            Token { token_type: TokenType::Name, value: String::from("D") },
-            Token { token_type: TokenType::Split, value: String::from("|") },
-            Token { token_type: TokenType::LineTail, value: String::from("-") },
-        ];     
+            Token {
+                token_type: TokenType::LineHead,
+                value: String::from(":"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: String::from("A"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: String::from("B"),
+            },
+            Token {
+                token_type: TokenType::Comma,
+                value: String::from(","),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: String::from("C"),
+            },
+            Token {
+                token_type: TokenType::Comma,
+                value: String::from(","),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: String::from("D"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::LineTail,
+                value: String::from("-"),
+            },
+        ];
 
         assert_eq!(tokens, right_result);
     }
 
+    #[test]
+    fn assign() {
+        let input = "#id = $10 \n#color = @($0, $0, $0)";
 
-   
+        let mut lexer = Lexer::new(input);
+        let tokens: Vec<Token> = lexer.tokenization();
+
+        let right_result = vec![
+            Token {
+                token_type: TokenType::Ident,
+                value: String::from("id"),
+            },
+            Token {
+                token_type: TokenType::Equal,
+                value: String::from("="),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: String::from("10"),
+            },
+            Token {
+                token_type: TokenType::Ident,
+                value: String::from("color"),
+            },
+            Token {
+                token_type: TokenType::Equal,
+                value: String::from("="),
+            },
+            Token {
+                token_type: TokenType::At,
+                value: String::from("@"),
+            },
+            Token {
+                token_type: TokenType::LParen,
+                value: String::from("("),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: String::from("0"),
+            },
+            Token {
+                token_type: TokenType::Comma,
+                value: String::from(","),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: String::from("0"),
+            },
+            Token {
+                token_type: TokenType::Comma,
+                value: String::from(","),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: String::from("0"),
+            },
+            Token {
+                token_type: TokenType::RParen,
+                value: String::from(")"),
+            },
+        ];
+
+        assert_eq!(tokens, right_result);
+    }
 }
