@@ -139,6 +139,7 @@ impl Parser {
     }
 
     fn parse_attr(&mut self, attr: &mut Attr, env: &Env) -> Result<(), ParserError> {
+        // [width, height, border_color, highlight]
         self.consume(TokenType::LBracket)?; // [
 
         let mut pos = 0;

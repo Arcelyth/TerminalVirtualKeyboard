@@ -17,6 +17,7 @@ pub fn render_ui(
 
     // Resolve Global Defaults from Env
     let default_border_color = Color::Rgb(176, 176, 176);
+    let default_fps_color = Color::Yellow;
     let global_border_color = match env.get("border_color") {
         Some(Value::RGB(r, g, b)) => Color::Rgb(*r, *g, *b),
         _ => default_border_color,
@@ -28,12 +29,23 @@ pub fn render_ui(
         _ => default_highlight,
     };
 
+    let outer_border_color = match env.get("outer_border_color") {
+        Some(Value::RGB(r, g, b)) => Color::Rgb(*r, *g, *b),
+        _ => global_border_color,
+    };
+
+    let fps_color= match env.get("fps_color") {
+        Some(Value::RGB(r, g, b)) => Color::Rgb(*r, *g, *b),
+        _ => default_fps_color,
+    };
+
+
     // Render Outer Container
     let outer_block = Block::default()
         .borders(Borders::ALL)
         .title(" Terminal Virtual Keyboard ")
         .border_type(BorderType::Thick)
-        .border_style(Style::default().fg(global_border_color));
+        .border_style(Style::default().fg(outer_border_color));
 
     let inner_area = outer_block.inner(area);
     f.render_widget(outer_block, area);
@@ -50,7 +62,7 @@ pub fn render_ui(
             .alignment(Alignment::Right)
             .style(
                 Style::default()
-                    .fg(Color::Yellow)
+                    .fg(fps_color)
                     .add_modifier(Modifier::BOLD),
             ),
         chunks[0],
