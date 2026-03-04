@@ -4,7 +4,7 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub enum Value {
     Number(u16), 
-    RGB(u16, u16, u16)
+    RGB(u8, u8, u8)
 }
 
 #[derive(Debug)]

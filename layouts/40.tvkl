@@ -1,4 +1,7 @@
+#border_color = @($255, $255, $255)
+#highlight = @($225, $225, $225)
+
 :| Tab [$6] | Q | W | E | R | T | Y | U | I | O | P | Back [$7] |-
 :| Caps [$7] | A | S | D | F | G | H | J | K | L | Enter [$8] |-
-:| LShift [$8] | / | Z | X | C | V | B | N | M | , | . | RShift [$8] |-
+:| LShift [$8] | '/' | Z | X | C | V | B | N | M | ',' | '.' | RShift [$8] |-
 :| LCtrl [$7] | Win [$6] | LAlt [$7] | Space | RAlt [$7] | App [$6] | RCtrl [$7]  |-

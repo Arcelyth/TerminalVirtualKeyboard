@@ -39,13 +39,13 @@ struct AppState {
 
 fn main() -> Result<(), AppError> {
 
+    let mut env = Env::new();
     let args = Args::parse();
     let layout = if let Some(p) = args.path {
         let content = std::fs::read_to_string(p)?;
         let mut lexer = Lexer::new(&content);
         let tokens = lexer.tokenization();
         let mut parser = Parser::new(tokens);
-        let mut env = Env::new();
         parser.parse(&mut env)?
     } else {
         return Err(AppError::WrongUsage); 
@@ -87,7 +87,7 @@ fn main() -> Result<(), AppError> {
             s.kps_events.retain(|&t| now.duration_since(t) < Duration::from_secs(1));
             let kps = s.kps_events.len();
 
-            render::render_ui(f, &s.pressed_keys, kps, &layout);
+            render::render_ui(f, &s.pressed_keys, kps, &layout, &env);
         })?;
 
         if event::poll(Duration::from_millis(16))? {

@@ -205,7 +205,7 @@ impl<'a> Lexer<'a> {
     fn collect_ident(&mut self) -> Token {
         let mut value = String::new();
         while let Some(&c) = self.src.peek() {
-            if c.is_alphanumeric() {
+            if c.is_alphanumeric() || c == '_' || c == '-' || c == '?'{
                 value.push(c);
                 self.src.next();
             } else {

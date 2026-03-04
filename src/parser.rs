@@ -402,8 +402,8 @@ mod tests {
     fn test_declarations_with_layout() {
         let mut env = Env::new();
 
-        // id = 10
-        // color = @(1, 2, 3)
+        // #id = $10
+        // #color = @($1, $2, $3)
         // :| A, C, D | B |-
         let tokens = vec![
             Token {
