@@ -1,29 +1,40 @@
 # =============================================================================
-# TVKL GRAMMAR SPECIFICATION
-# 
-# This document defines the formal EBNF for the Terminal Virtual Keyboard Layout.
-# 
-# SYMBOLS:
-#   ::=   Production
-#   |     Alternation (OR)
-#   []    Optional (0 or 1)
-#   {}*   Zero or more repetitions
-#   {}+   One or more repetitions
-#   ""    Literal string
+# TVKL — Terminal Virtual Keyboard Layout
+# =============================================================================
+#
+# -----------------------------------------------------------------------------
+# SYMBOL LEGEND (EBNF META-SYNTAX)
+# -----------------------------------------------------------------------------
+#
+# ::=    Production rule definition
+# |      Alternation (logical OR)
+# {}     Zero or more repetitions
+# []     Optional (0 or 1 occurrence)
+# ""     Literal terminal string
+#
+# =============================================================================
+# FORMAL GRAMMAR
 # =============================================================================
 
-tvkl        ::= declaration* EOF
-declaration ::= assign | line*
-assign      ::= ident "=" value
-ident       ::= "#" name
-value       ::= number | rgb
-rgb         ::= "rgb(" num "," num "," num ")"
-line        ::= ":" "|" { item (, item)* "|" }* "-"
-item        ::= ( quoted_name | name ) [ attr_decl ]
-quoted_name ::= ( "'" name "'" ) | ( '"' name '"' )
-attr_decl   ::= "[" { attr }+ "]"
+tvkl        ::= { declaration } EOF ;
+declaration ::= assign
+              | line ;
+assign      ::= ident "=" value ;
+ident       ::= "#" name ;
+value       ::= number
+              | color ;
+color       ::= "@" "(" number "," number "," number ")" ;
+line        ::= ":" "|" { item "|" } "-" ;
+item        ::= key_name [ attr_decl ] ;
+key_name    ::= quoted_name
+              | name ;
+quoted_name ::= "'" name "'"
+              | '"' name '"' ;
+attr_decl   ::= "[" attr { "," attr } "]" ;
 attr        ::= number
-name        ::= { ? any character ? }+ ;
-number      ::= "$" num
-num         ::= [0-9]+
-
+name        ::= name_char { name_char } ;
+name_char   ::= ? any character except whitespace,
+number      ::= "$" num ;
+num         ::= digit { digit } ;
+digit       ::= "0" | "1" | "2" | "3" | "4"
+              | "5" | "6" | "7" | "8" | "9" ;
