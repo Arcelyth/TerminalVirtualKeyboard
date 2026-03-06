@@ -3,7 +3,7 @@
 #esc_len = $5
 #esc_color = @($201, $113, $217)
 
-:| Esc [#esc_len,,#esc_color] | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0 | '-' | '=' | Back [$8] |-
+:| Esc [#esc_len,#esc_color] | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 0 | '-' | '=' | Back [$8] |-
 :| Tab [$7] | Q | W | E | R | T | Y | U | I | O | P | '[' | ']' | '\' [$6] |-
 :| Caps [$8] | A | S | D | F | G | H | J | K | L | ';' | "'" | Enter [$9] |-
 :| LShift [$10] | Z | X | C | V | B | N | M | ',' | '.' | '/' | RShift [$11] |-

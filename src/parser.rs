@@ -139,8 +139,8 @@ impl Parser {
     }
 
     fn parse_attr(&mut self, attr: &mut Attr, env: &Env) -> Result<(), ParserError> {
-        // [width, height, border_color, highlight]
-        self.consume(TokenType::LBracket)?; // [
+        // [width, border_color, highlight]
+        self.consume(TokenType::LBracket)?;
 
         let mut pos = 0;
 
@@ -163,14 +163,6 @@ impl Parser {
                     }
                 }
                 1 => {
-                    // height
-                    if let Value::Number(h) = self.parse_value(env)? {
-                        attr.height = h;
-                    } else {
-                        return Err(ParserError::Err("Height must be a number".into()));
-                    }
-                }
-                2 => {
                     // border_color
                     if let Value::RGB(r, g, b) = self.parse_value(env)? {
                         attr.border_color = Some(Color::Rgb(r, g, b));
@@ -178,7 +170,7 @@ impl Parser {
                         return Err(ParserError::Err("Border color must be RGB".into()));
                     }
                 }
-                3 => {
+                2 => {
                     // highlight
                     if let Value::RGB(r, g, b) = self.parse_value(env)? {
                         attr.highlight = Some(Color::Rgb(r, g, b));
@@ -204,7 +196,6 @@ impl Parser {
 
 fn get_rdev_key(name: &str) -> Option<Key> {
     match name.to_lowercase().as_str() {
-        "esc" | "escape" => Some(Key::Escape),
         "1" => Some(Key::Num1),
         "2" => Some(Key::Num2),
         "3" => Some(Key::Num3),
@@ -215,8 +206,7 @@ fn get_rdev_key(name: &str) -> Option<Key> {
         "8" => Some(Key::Num8),
         "9" => Some(Key::Num9),
         "0" => Some(Key::Num0),
-        "back" | "backspace" => Some(Key::Backspace),
-        "tab" => Some(Key::Tab),
+
         "q" => Some(Key::KeyQ),
         "w" => Some(Key::KeyW),
         "e" => Some(Key::KeyE),
@@ -227,8 +217,6 @@ fn get_rdev_key(name: &str) -> Option<Key> {
         "i" => Some(Key::KeyI),
         "o" => Some(Key::KeyO),
         "p" => Some(Key::KeyP),
-        "enter" | "return" => Some(Key::Return),
-        "caps" | "capslock" => Some(Key::CapsLock),
         "a" => Some(Key::KeyA),
         "s" => Some(Key::KeyS),
         "d" => Some(Key::KeyD),
@@ -238,8 +226,6 @@ fn get_rdev_key(name: &str) -> Option<Key> {
         "j" => Some(Key::KeyJ),
         "k" => Some(Key::KeyK),
         "l" => Some(Key::KeyL),
-        "lshift" | "shift" => Some(Key::ShiftLeft),
-        "rshift" => Some(Key::ShiftRight),
         "z" => Some(Key::KeyZ),
         "x" => Some(Key::KeyX),
         "c" => Some(Key::KeyC),
@@ -247,11 +233,58 @@ fn get_rdev_key(name: &str) -> Option<Key> {
         "b" => Some(Key::KeyB),
         "n" => Some(Key::KeyN),
         "m" => Some(Key::KeyM),
+
+        "lshift" | "shift" => Some(Key::ShiftLeft),
+        "rshift" => Some(Key::ShiftRight),
+        "esc" | "escape" => Some(Key::Escape),
         "ctrl" | "lctrl" => Some(Key::ControlLeft),
         "rctrl" => Some(Key::ControlRight),
         "alt" | "lalt" => Some(Key::Alt),
         "ralt" | "altgr" => Some(Key::AltGr),
         "space" => Some(Key::Space),
+        "enter" | "return" => Some(Key::Return),
+        "caps" | "capslock" => Some(Key::CapsLock),
+        "back" | "backspace" => Some(Key::Backspace),
+        "tab" => Some(Key::Tab),
+
+        "up" => Some(Key::UpArrow),
+        "down" => Some(Key::DownArrow),
+        "left" => Some(Key::LeftArrow),
+        "right" => Some(Key::RightArrow),
+
+        "ins" | "insert" => Some(Key::Insert),
+        "del" | "delete" => Some(Key::Delete),
+        "home" => Some(Key::Home),
+        "end" => Some(Key::End),
+        "pgup" | "pageup" => Some(Key::PageUp),
+        "pgdn" | "pagedown" => Some(Key::PageDown),
+
+        "`" | "backquote" => Some(Key::BackQuote),
+        "-" | "minus" => Some(Key::Minus),
+        "=" | "equal" => Some(Key::Equal),
+        "[" | "leftbracket" => Some(Key::LeftBracket),
+        "]" | "rightbracket" => Some(Key::RightBracket),
+        ";" | "semicolon" => Some(Key::SemiColon),
+        "'" | "quote" => Some(Key::Quote),
+        "\\" | "backslash" => Some(Key::BackSlash),
+        "," | "comma" => Some(Key::Comma),
+        "." | "dot" => Some(Key::Dot),
+        "/" | "slash" => Some(Key::Slash),
+
+        "f1" => Some(Key::F1),
+        "f2" => Some(Key::F2),
+        "f3" => Some(Key::F3),
+        "f4" => Some(Key::F4),
+        "f5" => Some(Key::F5),
+        "f6" => Some(Key::F6),
+        "f7" => Some(Key::F7),
+        "f8" => Some(Key::F8),
+        "f9" => Some(Key::F9),
+        "f10" => Some(Key::F10),
+        "f11" => Some(Key::F11),
+        "f12" => Some(Key::F12),
+
+        "win" | "meta" | "command" => Some(Key::MetaLeft),
         _ => None,
     }
 }
@@ -470,7 +503,7 @@ mod tests {
         assert_eq!(result.layer[0][0].binds[0].0.as_ref(), "Tab");
         assert_eq!(result.layer[0][0].binds[0].1, Some(Key::Tab));
         assert_eq!(result.layer[0][0].attr.width, 10);
-        assert_eq!(result.layer[0][0].attr.border_color, Some(Color::Rgb(1, 1, 1)));
+        assert_eq!(result.layer[0][0].attr.highlight, Some(Color::Rgb(1, 1, 1)));
     }
 
     #[test]

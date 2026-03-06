@@ -10,7 +10,6 @@ pub struct Layout {
 #[derive(Debug)]
 pub struct Attr {
     pub width: u16,
-    pub height: u16,
     pub border_color: Option<Color>,
     pub highlight: Option<Color>,
 }
@@ -23,7 +22,6 @@ impl Attr {
         };
         Self {
             width,
-            height: 3,
             border_color: None,
             highlight: None,
         }

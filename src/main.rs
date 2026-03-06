@@ -37,7 +37,13 @@ struct AppState {
     kps_events: Vec<Instant>,
 }
 
-fn main() -> Result<(), AppError> {
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("{}", e);
+    }
+}
+
+fn run() -> Result<(), AppError> {
 
     let mut env = Env::new();
     let args = Args::parse();

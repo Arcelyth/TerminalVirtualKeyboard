@@ -13,7 +13,7 @@ pub fn render_ui(
     kbd_layout: &Layout,
     env: &Env,
 ) {
-    let area = f.size();
+    let area = f.area();
 
     // Resolve Global Defaults from Env
     let default_border_color = Color::Rgb(176, 176, 176);
@@ -152,9 +152,9 @@ pub fn render_ui(
 }
 
 fn get_highlight(l: usize, env: &Env) -> Color {
-    let default_highlight_l2 = Color::Rgb(176, 176, 176);
-    let default_highlight_l3 = Color::Rgb(176, 176, 176);
-    let default_highlight_other = Color::Rgb(176, 176, 176);
+    let default_highlight_l2 = Color::Rgb(169, 204, 203);
+    let default_highlight_l3 = Color::Rgb(169, 173, 204);
+    let default_highlight_other = Color::Rgb(200, 169, 204);
     match env.get(format!("highlight_l{}", l.to_string()).as_str()) {
         Some(bc) => match bc {
             Value::RGB(r, g, b) => Color::Rgb(*r, *g, *b),
