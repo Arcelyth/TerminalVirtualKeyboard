@@ -115,14 +115,36 @@ impl Parser {
             let name_token = self.consume(TokenType::Name)?;
             let name_str = name_token.value.clone();
             let mut binds = vec![];
-            binds.push((Arc::from(name_str.as_str()), get_rdev_key(&name_str)));
             let mut attr = Attr::default(&name_str);
+
+            let r_key = if self.peek()?.token_type == TokenType::LBrace {
+                self.consume(TokenType::LBrace)?;
+                let spec_token = self.consume(TokenType::Name)?;
+                let spec_key = spec_token.value.clone();
+                self.consume(TokenType::RBrace)?;
+                spec_key
+            } else {
+                name_str.clone()
+            };
+
+            binds.push((Arc::from(name_str.as_str()), get_rdev_key(&r_key)));
 
             while self.peek()?.token_type == TokenType::Comma {
                 self.consume(TokenType::Comma)?;
                 let name_token = self.consume(TokenType::Name)?;
                 let name_str = name_token.value.clone();
-                binds.push((Arc::from(name_str.as_str()), get_rdev_key(&name_str)));
+
+                let r_key = if self.peek()?.token_type == TokenType::LBrace {
+                    self.consume(TokenType::LBrace)?;
+                    let spec_token = self.consume(TokenType::Name)?;
+                    let spec_key = spec_token.value.clone();
+                    self.consume(TokenType::RBrace)?;
+                    spec_key
+                } else {
+                    name_str.clone()
+                };
+
+                binds.push((Arc::from(name_str.as_str()), get_rdev_key(&r_key)));
             }
 
             if self.peek()?.token_type == TokenType::LBracket {
@@ -688,5 +710,47 @@ mod tests {
         assert_eq!(button_2.binds[0].0.as_ref(), "B");
         assert_eq!(button_2.binds[0].1, Some(Key::KeyB));
         assert_eq!(button_2.attr.width, 4);
+    }
+
+    #[test]
+    fn test_customized_name() {
+        // Input sequence for: :| ^ {"up"} | -
+        let tokens = vec![
+            Token {
+                token_type: TokenType::LineHead,
+                value: ":".into(),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            t_name("^"),
+            Token {
+                token_type: TokenType::LBrace,
+                value: "{".into(),
+            },
+            t_name("up"),
+            Token {
+                token_type: TokenType::RBrace,
+                value: "}".into(),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: "|".into(),
+            },
+            Token {
+                token_type: TokenType::LineTail,
+                value: "-".into(),
+            },
+        ];
+
+        let mut parser = Parser::new(tokens);
+
+        let result = parser.parse(&mut Env::new()).unwrap();
+        assert_eq!(result.layer.len(), 1);
+        assert_eq!(
+            result.layer[0][0].binds,
+            [(Arc::from("^"), Some(Key::UpArrow)),]
+        );
     }
 }

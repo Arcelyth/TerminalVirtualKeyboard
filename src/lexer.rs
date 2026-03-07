@@ -205,7 +205,7 @@ impl<'a> Lexer<'a> {
     fn collect_ident(&mut self) -> Token {
         let mut value = String::new();
         while let Some(&c) = self.src.peek() {
-            if c.is_alphanumeric() || c == '_' || c == '-' || c == '?'{
+            if c.is_alphanumeric() || c == '_' || c == '-' || c == '?' {
                 value.push(c);
                 self.src.next();
             } else {
@@ -457,6 +457,51 @@ mod tests {
             Token {
                 token_type: TokenType::RParen,
                 value: String::from(")"),
+            },
+        ];
+
+        assert_eq!(tokens, right_result);
+    }
+
+    #[test]
+    fn customized_name() {
+        let input = ":| '^' {'up'} |-";
+
+        let mut lexer = Lexer::new(input);
+        let tokens: Vec<Token> = lexer.tokenization();
+
+        let right_result = vec![
+            Token {
+                token_type: TokenType::LineHead,
+                value: String::from(":"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: String::from("^"),
+            },
+            Token {
+                token_type: TokenType::LBrace,
+                value: String::from("{"),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: String::from("up"),
+            },
+            Token {
+                token_type: TokenType::RBrace,
+                value: String::from("}"),
+            },
+            Token {
+                token_type: TokenType::Split,
+                value: String::from("|"),
+            },
+            Token {
+                token_type: TokenType::LineTail,
+                value: String::from("-"),
             },
         ];
 
