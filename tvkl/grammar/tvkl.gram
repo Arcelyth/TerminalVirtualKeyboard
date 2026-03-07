@@ -16,25 +16,32 @@
 # FORMAL GRAMMAR
 # =============================================================================
 
-tvkl        ::= { declaration } EOF ;
-declaration ::= assign
-              | line ;
-assign      ::= ident "=" value ;
-ident       ::= "#" name ;
-value       ::= number
-              | color ;
-color       ::= "@" "(" number "," number "," number ")" ;
-line        ::= ":" "|" { item "|" } "-" ;
-item        ::= key_name [ attr_decl ] ;
-key_name    ::= quoted_name
-              | name ;
-quoted_name ::= "'" name "'"
-              | '"' name '"' ;
-attr_decl   ::= "[" attr { "," attr } "]" ;
-attr        ::= number
-name        ::= name_char { name_char } ;
-name_char   ::= ? any character except whitespace,
-number      ::= "$" num ;
-num         ::= digit { digit } ;
-digit       ::= "0" | "1" | "2" | "3" | "4"
-              | "5" | "6" | "7" | "8" | "9" ;
+tvkl            ::= { declaration } EOF ;
+declaration     ::= assign 
+                  | line ;
+assign          ::= ident "=" value ;
+ident           ::= "#" name ;
+value           ::= number 
+                  | color 
+                  | ident ;
+color           ::= "@" "(" color_param "," color_param "," color_param ")" ;
+color_param     ::= number | ident ;
+line            ::= ":" "|" { item "|" } "-" ;
+item            ::= bind_list [ attr_decl ] ;
+bind_list       ::= bind { "," bind } ;
+bind            ::= key_name [ metadata ] ;
+metadata        ::= "{" quoted_name "}" ;
+attr_decl       ::= "[" [ attr ] { "," [ attr ] } "]" ;
+attr            ::= number 
+                  | color 
+                  | ident ;
+key_name        ::= quoted_name 
+                  | name ;
+quoted_name     ::= "'" name_char2 "'" 
+                  | '"' name_char2 '"' ;
+number          ::= "$" num ;
+name            ::= name_char { name_char } ;
+name_char       ::= ? any character except whitespace, "|", ":", "-", "[", "]", "{", "}", ",", "=", "#", "@" ? ;
+name_char2      ::= ? any chararcter except corresponding quotation marks ? ;
+num             ::= digit { digit } ;
+digit           ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
