@@ -2,6 +2,9 @@
 #highlight = @($225, $225, $225)
 #tab_len = $6
 
+#show_kps = $0
+#show_caps = $0
+
 :| Tab [#tab_len] | Q, 1 | W, 2 | E, 3 | R, 4 | T, 5 
     | Y, 6 | U, 7 | I, 8 | O, 9 | P, 0 | Back [$7] |-
 :| Caps [$7] | A | S | D | F | G | H | J | K | L | Enter [$8] |-

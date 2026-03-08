@@ -18,6 +18,7 @@ pub fn render_ui(
     // Resolve Global Defaults from Env
     let default_border_color = Color::Rgb(176, 176, 176);
     let default_fps_color = Color::Yellow;
+    let default_caps_color = Color::Rgb(222, 133, 212);
     let global_border_color = match env.get("border_color") {
         Some(Value::RGB(r, g, b)) => Color::Rgb(*r, *g, *b),
         _ => default_border_color,
@@ -34,11 +35,37 @@ pub fn render_ui(
         _ => global_border_color,
     };
 
-    let fps_color= match env.get("fps_color") {
+    let show_kps = match env.get("show_kps") {
+        Some(Value::Number(n)) => {
+            if *n == 0 {
+                false
+            } else {
+                true
+            }
+        }
+        _ => true,
+    };
+
+    let show_caps = match env.get("show_caps") {
+        Some(Value::Number(n)) => {
+            if *n == 0 {
+                false
+            } else {
+                true
+            }
+        }
+        _ => true,
+    };
+
+    let fps_color = match env.get("fps_color") {
         Some(Value::RGB(r, g, b)) => Color::Rgb(*r, *g, *b),
         _ => default_fps_color,
     };
 
+    let caps_color = match env.get("caps_color") {
+        Some(Value::RGB(r, g, b)) => Color::Rgb(*r, *g, *b),
+        _ => default_caps_color,
+    };
 
     // Render Outer Container
     let outer_block = Block::default()
@@ -56,16 +83,34 @@ pub fn render_ui(
         .constraints([Constraint::Length(1), Constraint::Min(0)])
         .split(inner_area);
 
-    // Render KPS
+    let status_bar = TuiLayout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Min(0), Constraint::Length(10)])
+        .split(chunks[0]);
+
+    let mut status_spans = Vec::new();
+
+    let caps_text = if show_caps { "CAPS" } else { "" };
+    if pressed_keys.contains(&rdev::Key::CapsLock) {
+        status_spans.push(Span::styled(
+            caps_text,
+            Style::default().fg(caps_color).add_modifier(Modifier::BOLD),
+        ));
+    }
+
+    // Render Status
     f.render_widget(
-        Paragraph::new(format!("KPS: {} ", kps))
+        Paragraph::new(Line::from(status_spans)).alignment(Alignment::Right),
+        status_bar[0],
+    );
+
+    // Render KPS
+    let kps_text = if show_kps { format!("KPS: {}", kps) } else { String::new() };
+    f.render_widget(
+        Paragraph::new(kps_text)
             .alignment(Alignment::Right)
-            .style(
-                Style::default()
-                    .fg(fps_color)
-                    .add_modifier(Modifier::BOLD),
-            ),
-        chunks[0],
+            .style(Style::default().fg(fps_color).add_modifier(Modifier::BOLD)),
+        status_bar[1],
     );
 
     // Render Keyboard Rows
@@ -171,8 +216,3 @@ fn get_highlight(l: usize, env: &Env) -> Color {
         },
     }
 }
-
-
-
-
-
