@@ -69,8 +69,9 @@ fn run() -> Result<(), AppError> {
             let mut s = state_clone.lock().unwrap();
             match event.event_type {
                 EventType::KeyPress(key) => {
-                    s.pressed_keys.insert(key);
-                    s.kps_events.push(Instant::now());
+                    if s.pressed_keys.insert(key) {
+                        s.kps_events.push(Instant::now());
+                    }
                 }
                 EventType::KeyRelease(key) => {
                     s.pressed_keys.remove(&key);
