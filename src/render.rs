@@ -67,6 +67,15 @@ pub fn render_ui(
         _ => default_caps_color,
     };
 
+    let global_alignment = match env.get("alignment") {
+        Some(Value::Str(a)) => match a.as_ref() {
+            "left" => Alignment::Left,
+            "right" => Alignment::Right,
+            _ => Alignment::Center,
+        },
+        _ => Alignment::Center,
+    };
+
     // Render Outer Container
     let outer_block = Block::default()
         .borders(Borders::ALL)
@@ -105,7 +114,11 @@ pub fn render_ui(
     );
 
     // Render KPS
-    let kps_text = if show_kps { format!("KPS: {}", kps) } else { String::new() };
+    let kps_text = if show_kps {
+        format!("KPS: {}", kps)
+    } else {
+        String::new()
+    };
     f.render_widget(
         Paragraph::new(kps_text)
             .alignment(Alignment::Right)
@@ -139,7 +152,15 @@ pub fn render_ui(
         for (k_idx, button) in row.iter().enumerate() {
             let current_border = button.attr.border_color.unwrap_or(global_border_color);
             let current_highlight = button.attr.highlight.unwrap_or(global_highlight);
-
+            let current_alignment = match &button.attr.alignment {
+                Some(a) => match a.as_ref() {
+                    "left" => Alignment::Left,
+                    "right" => Alignment::Right,
+                    "center" => Alignment::Center,
+                    _ => global_alignment,
+                },
+                None => global_alignment,
+            };
             let active_bind_idx = button
                 .binds
                 .iter()
@@ -173,7 +194,7 @@ pub fn render_ui(
             };
 
             let key_widget = Paragraph::new(display_name)
-                .alignment(Alignment::Center)
+                .alignment(current_alignment)
                 .block(
                     Block::default()
                         .borders(Borders::ALL)

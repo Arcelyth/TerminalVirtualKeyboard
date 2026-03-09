@@ -1,10 +1,11 @@
 use std::sync::Arc;
 use std::collections::HashMap;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 pub enum Value {
     Number(u16), 
-    RGB(u8, u8, u8)
+    RGB(u8, u8, u8),
+    Str(Arc<str>)
 }
 
 #[derive(Debug)]

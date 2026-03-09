@@ -12,6 +12,7 @@ pub struct Attr {
     pub width: u16,
     pub border_color: Option<Color>,
     pub highlight: Option<Color>,
+    pub alignment: Option<Arc<str>>,
 }
 
 impl Attr {
@@ -24,6 +25,7 @@ impl Attr {
             width,
             border_color: None,
             highlight: None,
+            alignment: None,
         }
     }
 }

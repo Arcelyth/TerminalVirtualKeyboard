@@ -77,6 +77,10 @@ impl Parser {
                 let num = self.consume(TokenType::Number)?;
                 Ok(Value::Number(num.value.parse()?))
             }
+            TokenType::Name => {
+                let str = self.consume(TokenType::Name)?;
+                Ok(Value::Str(str.value.clone().into()))
+            }
             TokenType::At => {
                 self.consume(TokenType::At)?;
                 self.consume(TokenType::LParen)?;
@@ -96,7 +100,7 @@ impl Parser {
                 let ident = self.consume(TokenType::Ident)?;
                 let name = ident.value.clone();
                 match env.get(name.as_str()) {
-                    Some(v) => Ok(*v),
+                    Some(v) => Ok(v.clone()),
                     None => Err(ParserError::Err(format!("Unbounded Variable {:?}.", name))),
                 }
             }
@@ -161,7 +165,7 @@ impl Parser {
     }
 
     fn parse_attr(&mut self, attr: &mut Attr, env: &Env) -> Result<(), ParserError> {
-        // [width, border_color, highlight]
+        // [width, border_color, highlight, alignment]
         self.consume(TokenType::LBracket)?;
 
         let mut pos = 0;
@@ -200,6 +204,15 @@ impl Parser {
                         return Err(ParserError::Err("Highlight must be RGB".into()));
                     }
                 }
+                3 => {
+                    // alignment
+                    if let Value::Str(v) = self.parse_value(env)? {
+                        attr.alignment = Some(v);
+                    } else {
+                        return Err(ParserError::Err("Alignment must be Name".into()));
+                    }
+                }
+
                 _ => {
                     self.advance()?;
                 }
@@ -589,6 +602,7 @@ mod tests {
 
         // #id = $10
         // #color = @($1, $2, $3)
+        // #str = "hi"
         // :| A, C, D | B |-
         let tokens = vec![
             Token {
@@ -644,6 +658,18 @@ mod tests {
                 value: ")".into(),
             },
             Token {
+                token_type: TokenType::Ident,
+                value: "str".into(),
+            },
+            Token {
+                token_type: TokenType::Equal,
+                value: "=".into(),
+            },
+            Token {
+                token_type: TokenType::Name,
+                value: "hi".into(),
+            },
+            Token {
                 token_type: TokenType::LineHead,
                 value: ":".into(),
             },
@@ -692,6 +718,11 @@ mod tests {
                 assert_eq!(*b, 3);
             }
             _ => panic!("Variable 'color' not found or wrong type"),
+        }
+
+        match env.get("str") {
+            Some(Value::Str(v)) => assert_eq!(*v, "hi".into()),
+            _ => panic!("Variable 'str' not found or wrong type"),
         }
 
         assert_eq!(result.layer.len(), 1);
