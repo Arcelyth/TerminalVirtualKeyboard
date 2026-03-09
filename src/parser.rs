@@ -5,6 +5,7 @@ use crate::lexer::*;
 use ratatui::style::Color;
 use rdev::Key;
 use std::sync::Arc;
+
 #[derive(Debug)]
 pub struct Parser {
     tokens: Vec<Token>,
@@ -16,11 +17,18 @@ impl Parser {
         Self { tokens, current: 0 }
     }
 
+    fn get_line(&self) -> usize {
+        self.tokens
+            .get(self.current)
+            .map(|t| t.line)
+            .unwrap_or_else(|| self.tokens.last().map(|t| t.line).unwrap_or(0))
+    }
+
     fn peek(&self) -> Result<&Token, ParserError> {
         if self.current < self.tokens.len() {
             Ok(&self.tokens[self.current])
         } else {
-            Err(ParserError::Err("EOF".to_string()))
+            Err(ParserError::Err("EOF".to_string(), self.get_line()))
         }
     }
 
@@ -29,7 +37,7 @@ impl Parser {
             self.current += 1;
             Ok(&self.tokens[self.current - 1])
         } else {
-            Err(ParserError::Err("EOF".to_string()))
+            Err(ParserError::Err("EOF".to_string(), self.get_line()))
         }
     }
 
@@ -38,10 +46,10 @@ impl Parser {
         if t.token_type == ty {
             self.advance()
         } else {
-            Err(ParserError::Err(format!(
-                "Expected {:?}, found {:?}",
-                ty, t.token_type
-            )))
+            Err(ParserError::Err(
+                format!("Expected {:?}, found {:?}", ty, t.token_type),
+                self.get_line(),
+            ))
         }
     }
 
@@ -101,11 +109,15 @@ impl Parser {
                 let name = ident.value.clone();
                 match env.get(name.as_str()) {
                     Some(v) => Ok(v.clone()),
-                    None => Err(ParserError::Err(format!("Unbounded Variable {:?}.", name))),
+                    None => Err(ParserError::Err(
+                        format!("Unbounded Variable {:?}.", name),
+                        self.get_line(),
+                    )),
                 }
             }
             _ => Err(ParserError::Err(
                 "Expected Number, Identifier or RGB.".to_string(),
+                self.get_line(),
             )),
         }
     }
@@ -185,7 +197,7 @@ impl Parser {
                     if let Value::Number(w) = self.parse_value(env)? {
                         attr.width = w;
                     } else {
-                        return Err(ParserError::Err("Width must be a number".into()));
+                        return Err(ParserError::Err("Width must be a number".into(), self.get_line()));
                     }
                 }
                 1 => {
@@ -193,7 +205,7 @@ impl Parser {
                     if let Value::RGB(r, g, b) = self.parse_value(env)? {
                         attr.border_color = Some(Color::Rgb(r, g, b));
                     } else {
-                        return Err(ParserError::Err("Border color must be RGB".into()));
+                        return Err(ParserError::Err("Border color must be RGB".into(), self.get_line()));
                     }
                 }
                 2 => {
@@ -201,7 +213,7 @@ impl Parser {
                     if let Value::RGB(r, g, b) = self.parse_value(env)? {
                         attr.highlight = Some(Color::Rgb(r, g, b));
                     } else {
-                        return Err(ParserError::Err("Highlight must be RGB".into()));
+                        return Err(ParserError::Err("Highlight must be RGB".into(), self.get_line()));
                     }
                 }
                 3 => {
@@ -209,7 +221,7 @@ impl Parser {
                     if let Value::Str(v) = self.parse_value(env)? {
                         attr.alignment = Some(v);
                     } else {
-                        return Err(ParserError::Err("Alignment must be Name".into()));
+                        return Err(ParserError::Err("Alignment must be Name".into(), self.get_line()));
                     }
                 }
 
@@ -330,10 +342,11 @@ mod tests {
     use rdev::Key;
 
     // Helper to create a Name token
-    fn t_name(val: &str) -> Token {
+    fn t_name(val: &str, line: usize) -> Token {
         Token {
             token_type: TokenType::Name,
             value: val.to_string(),
+            line,
         }
     }
 
@@ -344,24 +357,29 @@ mod tests {
             Token {
                 token_type: TokenType::LineHead,
                 value: ":".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
-            t_name("Tab"),
+            t_name("Tab", 1),
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
-            t_name("P"),
+            t_name("P", 1),
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LineTail,
                 value: "-".into(),
+                line: 1,
             },
         ];
 
@@ -382,20 +400,24 @@ mod tests {
             Token {
                 token_type: TokenType::LineHead,
                 value: ":".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
-            t_name("A"),
-            t_name("B"), // Error here: Parser expects Split (|) after Name
+            t_name("A", 1),
+            t_name("B", 1), // Error here: Parser expects Split (|) after Name
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LineTail,
                 value: "-".into(),
+                line: 1,
             },
         ];
 
@@ -411,36 +433,44 @@ mod tests {
             Token {
                 token_type: TokenType::LineHead,
                 value: ":".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
-            t_name("Tab"),
+            t_name("Tab", 1),
             Token {
                 token_type: TokenType::LBracket,
                 value: "[".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Number,
                 value: "10".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::RBracket,
                 value: "]".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
-            t_name("P"),
+            t_name("P", 1),
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LineTail,
                 value: "-".into(),
+                line: 1,
             },
         ];
 
@@ -463,71 +493,88 @@ mod tests {
             Token {
                 token_type: TokenType::LineHead,
                 value: ":".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
-            t_name("Tab"),
+            t_name("Tab", 1),
             Token {
                 token_type: TokenType::LBracket,
                 value: "[".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Number,
                 value: "10".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Comma,
                 value: ",".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Comma,
                 value: ",".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::At,
                 value: "@".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LParen,
                 value: "(".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Number,
                 value: "1".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Comma,
                 value: ",".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Number,
                 value: "1".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Comma,
                 value: ",".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Number,
                 value: "1".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::RParen,
                 value: ")".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::RBracket,
                 value: "]".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LineTail,
                 value: "-".into(),
+                line: 1,
             },
         ];
 
@@ -548,34 +595,41 @@ mod tests {
             Token {
                 token_type: TokenType::LineHead,
                 value: ":".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
-            t_name("A"),
+            t_name("A", 1),
             Token {
                 token_type: TokenType::Comma,
                 value: ",".into(),
+                line: 1,
             },
-            t_name("C"),
+            t_name("C", 1),
             Token {
                 token_type: TokenType::Comma,
                 value: ",".into(),
+                line: 1,
             },
-            t_name("D"),
+            t_name("D", 1),
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
-            t_name("B"),
+            t_name("B", 1),
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LineTail,
                 value: "-".into(),
+                line: 1,
             },
         ];
 
@@ -608,98 +662,121 @@ mod tests {
             Token {
                 token_type: TokenType::Ident,
                 value: "id".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Equal,
                 value: "=".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Number,
                 value: "10".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Ident,
                 value: "color".into(),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Equal,
                 value: "=".into(),
+                line: 2,
             },
             Token {
                 token_type: TokenType::At,
                 value: "@".into(),
+                line: 2,
             },
             Token {
                 token_type: TokenType::LParen,
                 value: "(".into(),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Number,
                 value: "1".into(),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Comma,
                 value: ",".into(),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Number,
                 value: "2".into(),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Comma,
                 value: ",".into(),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Number,
                 value: "3".into(),
+                line: 2,
             },
             Token {
                 token_type: TokenType::RParen,
                 value: ")".into(),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Ident,
                 value: "str".into(),
+                line: 3,
             },
             Token {
                 token_type: TokenType::Equal,
                 value: "=".into(),
+                line: 3,
             },
             Token {
                 token_type: TokenType::Name,
                 value: "hi".into(),
+                line: 3,
             },
             Token {
                 token_type: TokenType::LineHead,
                 value: ":".into(),
+                line: 4,
             },
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 4,
             },
-            t_name("A"),
+            t_name("A", 4),
             Token {
                 token_type: TokenType::Comma,
                 value: ",".into(),
+                line: 4,
             },
-            t_name("C"),
+            t_name("C", 4),
             Token {
                 token_type: TokenType::Comma,
                 value: ",".into(),
+                line: 4,
             },
-            t_name("D"),
+            t_name("D", 4),
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 4,
             },
-            t_name("B"),
+            t_name("B", 4),
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 4,
             },
             Token {
                 token_type: TokenType::LineTail,
                 value: "-".into(),
+                line: 4,
             },
         ];
 
@@ -750,28 +827,34 @@ mod tests {
             Token {
                 token_type: TokenType::LineHead,
                 value: ":".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
-            t_name("^"),
+            t_name("^", 1),
             Token {
                 token_type: TokenType::LBrace,
                 value: "{".into(),
+                line: 1,
             },
-            t_name("up"),
+            t_name("up", 1),
             Token {
                 token_type: TokenType::RBrace,
                 value: "}".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: "|".into(),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LineTail,
                 value: "-".into(),
+                line: 1,
             },
         ];
 

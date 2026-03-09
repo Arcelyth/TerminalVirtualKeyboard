@@ -28,16 +28,27 @@ const RESERVE_SYMBOL: [char; 15] = [
 pub struct Token {
     pub token_type: TokenType,
     pub value: String,
+    pub line: usize,
 }
 
 pub struct Lexer<'a> {
     src: Peekable<Chars<'a>>,
+    line: usize,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(src: &'a str) -> Self {
         Self {
             src: src.chars().peekable(),
+            line: 1,
+        }
+    }
+
+    pub fn new_token(&self, ty: TokenType, value: &str) -> Token {
+        Token {
+            token_type: ty,
+            value: value.to_string(),
+            line: self.line,
         }
     }
 
@@ -47,24 +58,15 @@ impl<'a> Lexer<'a> {
         match c {
             ':' => {
                 self.src.next();
-                Some(Token {
-                    token_type: TokenType::LineHead,
-                    value: ":".to_string(),
-                })
+                Some(self.new_token(TokenType::LineHead, ":"))
             }
             '-' => {
                 self.src.next();
-                Some(Token {
-                    token_type: TokenType::LineTail,
-                    value: "-".to_string(),
-                })
+                Some(self.new_token(TokenType::LineTail, "-"))
             }
             '|' => {
                 self.src.next();
-                Some(Token {
-                    token_type: TokenType::Split,
-                    value: "|".to_string(),
-                })
+                Some(self.new_token(TokenType::Split, "|"))
             }
             '$' => {
                 self.src.next();
@@ -72,59 +74,35 @@ impl<'a> Lexer<'a> {
             }
             '[' => {
                 self.src.next();
-                Some(Token {
-                    token_type: TokenType::LBracket,
-                    value: "[".to_string(),
-                })
+                Some(self.new_token(TokenType::LBracket, "["))
             }
             ']' => {
                 self.src.next();
-                Some(Token {
-                    token_type: TokenType::RBracket,
-                    value: "]".to_string(),
-                })
+                Some(self.new_token(TokenType::RBracket, "]"))
             }
             '{' => {
                 self.src.next();
-                Some(Token {
-                    token_type: TokenType::LBrace,
-                    value: "{".to_string(),
-                })
+                Some(self.new_token(TokenType::LBrace, "{"))
             }
             '}' => {
                 self.src.next();
-                Some(Token {
-                    token_type: TokenType::RBrace,
-                    value: "}".to_string(),
-                })
+                Some(self.new_token(TokenType::RBrace, "}"))
             }
             '(' => {
                 self.src.next();
-                Some(Token {
-                    token_type: TokenType::LParen,
-                    value: "(".to_string(),
-                })
+                Some(self.new_token(TokenType::LParen, "("))
             }
             ')' => {
                 self.src.next();
-                Some(Token {
-                    token_type: TokenType::RParen,
-                    value: ")".to_string(),
-                })
+                Some(self.new_token(TokenType::RParen, ")"))
             }
             '=' => {
                 self.src.next();
-                Some(Token {
-                    token_type: TokenType::Equal,
-                    value: "=".to_string(),
-                })
+                Some(self.new_token(TokenType::Equal, "="))
             }
             ',' => {
                 self.src.next();
-                Some(Token {
-                    token_type: TokenType::Comma,
-                    value: ",".to_string(),
-                })
+                Some(self.new_token(TokenType::Comma, ","))
             }
             '#' => {
                 self.src.next();
@@ -132,10 +110,7 @@ impl<'a> Lexer<'a> {
             }
             '@' => {
                 self.src.next();
-                Some(Token {
-                    token_type: TokenType::At,
-                    value: "@".to_string(),
-                })
+                Some(self.new_token(TokenType::At, "@"))
             }
             '\'' | '\"' => Some(self.collect_quoted_name(c)),
             _ => Some(self.collect_plain_name()),
@@ -144,7 +119,10 @@ impl<'a> Lexer<'a> {
 
     fn consume_whitespace(&mut self) {
         while let Some(&c) = self.src.peek() {
-            if c.is_whitespace() {
+            if c == '\n' {
+                self.line += 1;
+                self.src.next();
+            } else if c.is_whitespace() {
                 self.src.next();
             } else {
                 break;
@@ -165,10 +143,7 @@ impl<'a> Lexer<'a> {
             self.src.next();
         }
 
-        Token {
-            token_type: TokenType::Name,
-            value,
-        }
+        self.new_token(TokenType::Name, &value)
     }
 
     fn collect_number(&mut self) -> Token {
@@ -181,10 +156,8 @@ impl<'a> Lexer<'a> {
                 break;
             }
         }
-        Token {
-            token_type: TokenType::Number,
-            value,
-        }
+
+        self.new_token(TokenType::Number, &value)
     }
 
     fn collect_plain_name(&mut self) -> Token {
@@ -196,10 +169,8 @@ impl<'a> Lexer<'a> {
             value.push(c);
             self.src.next();
         }
-        Token {
-            token_type: TokenType::Name,
-            value,
-        }
+
+        self.new_token(TokenType::Name, &value)
     }
 
     fn collect_ident(&mut self) -> Token {
@@ -212,10 +183,8 @@ impl<'a> Lexer<'a> {
                 break;
             }
         }
-        Token {
-            token_type: TokenType::Ident,
-            value,
-        }
+
+        self.new_token(TokenType::Ident, &value)
     }
 
     pub fn tokenization(&mut self) -> Vec<Token> {
@@ -242,46 +211,57 @@ mod tests {
             Token {
                 token_type: TokenType::LineHead,
                 value: String::from(":"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Name,
                 value: String::from("A"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Name,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Name,
                 value: String::from("P"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Name,
                 value: String::from("Back"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LineTail,
                 value: String::from("-"),
+                line: 1,
             },
         ];
 
@@ -299,42 +279,52 @@ mod tests {
             Token {
                 token_type: TokenType::LineHead,
                 value: String::from(":"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Name,
                 value: String::from("A"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Name,
                 value: String::from("Back"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LBracket,
                 value: String::from("["),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Number,
                 value: String::from("10"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::RBracket,
                 value: String::from("]"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LineTail,
                 value: String::from("-"),
+                line: 1,
             },
         ];
 
@@ -352,46 +342,57 @@ mod tests {
             Token {
                 token_type: TokenType::LineHead,
                 value: String::from(":"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Name,
                 value: String::from("A"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Name,
                 value: String::from("B"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Comma,
                 value: String::from(","),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Name,
                 value: String::from("C"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Comma,
                 value: String::from(","),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Name,
                 value: String::from("D"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LineTail,
                 value: String::from("-"),
+                line: 1,
             },
         ];
 
@@ -409,54 +410,67 @@ mod tests {
             Token {
                 token_type: TokenType::Ident,
                 value: String::from("id"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Equal,
                 value: String::from("="),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Number,
                 value: String::from("10"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Ident,
                 value: String::from("color"),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Equal,
                 value: String::from("="),
+                line: 2,
             },
             Token {
                 token_type: TokenType::At,
                 value: String::from("@"),
+                line: 2,
             },
             Token {
                 token_type: TokenType::LParen,
                 value: String::from("("),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Number,
                 value: String::from("0"),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Comma,
                 value: String::from(","),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Number,
                 value: String::from("0"),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Comma,
                 value: String::from(","),
+                line: 2,
             },
             Token {
                 token_type: TokenType::Number,
                 value: String::from("0"),
+                line: 2,
             },
             Token {
                 token_type: TokenType::RParen,
                 value: String::from(")"),
+                line: 2,
             },
         ];
 
@@ -474,34 +488,42 @@ mod tests {
             Token {
                 token_type: TokenType::LineHead,
                 value: String::from(":"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Name,
                 value: String::from("^"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LBrace,
                 value: String::from("{"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Name,
                 value: String::from("up"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::RBrace,
                 value: String::from("}"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::Split,
                 value: String::from("|"),
+                line: 1,
             },
             Token {
                 token_type: TokenType::LineTail,
                 value: String::from("-"),
+                line: 1,
             },
         ];
 
